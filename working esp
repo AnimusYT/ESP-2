@@ -1,6 +1,6 @@
 local camera = workspace.CurrentCamera
 local useTeamCheck = true
-local hideWhenNotLooking = false
+local hideWhenNotLooking = true
 
 -- Store references to the lines for players
 local playerLines = {}
