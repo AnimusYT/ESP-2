@@ -1,0 +1,103 @@
+local camera = workspace.CurrentCamera
+local useTeamCheck = true
+local hideWhenNotLooking = false
+
+-- Store references to the lines for players
+local playerLines = {}
+
+-- Function to update or create lines for a player
+local function updateLinesForPlayer(player)
+    if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        -- Check if the player already has a line
+        if playerLines[player] then
+            -- Remove existing line
+            playerLines[player].Visible = false
+        end
+        
+        -- Create a new line for the player
+        local line = Drawing.new("Line")
+        line.Visible = true
+        line.From = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+        line.Color = Color3.fromRGB(255, 80, 60)
+        line.Thickness = 2
+        line.Transparency = 1
+
+        -- Store the line for this player
+        playerLines[player] = line
+
+        -- Update the line's position
+        local function updateLinePosition()
+            game:GetService("RunService").RenderStepped:Connect(function()
+                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local vector, onScreen = camera:WorldToScreenPoint(player.Character.HumanoidRootPart.Position)
+                    if onScreen then
+                        line.To = Vector2.new(vector.X, vector.Y)
+                        line.Visible = true
+                    else
+                        -- Hide the line if not on screen
+                        if hideWhenNotLooking then
+                            line.Visible = false
+                        end
+                    end
+                else
+                    -- Ensure the line is removed if the player no longer exists
+                    line.Visible = false
+                end
+            end)
+        end
+
+        coroutine.wrap(updateLinePosition)()
+    end
+end
+
+-- Function to remove lines for a player
+local function removeLineForPlayer(player)
+    if playerLines[player] then
+        playerLines[player].Visible = false
+        playerLines[player] = nil
+    end
+end
+
+-- Function to handle player team changes
+local function handlePlayerTeamChange(player)
+    if useTeamCheck == false or player.Team ~= game.Players.LocalPlayer.Team then
+        updateLinesForPlayer(player)
+    else
+        removeLineForPlayer(player)  -- Remove line if the player is on the same team
+    end
+end
+
+-- Update lines for players already in the game
+for _, player in pairs(game.Players:GetPlayers()) do
+    handlePlayerTeamChange(player)
+    
+    -- Listen for when a player respawns
+    player.CharacterAdded:Connect(function()
+        wait() -- Ensure the character is loaded
+        handlePlayerTeamChange(player)
+    end)
+end
+
+-- When a new player joins the game
+game.Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        wait() -- Ensure the character is loaded
+        handlePlayerTeamChange(player)
+    end)
+end)
+
+-- Detect when a player's team changes
+game.Players.LocalPlayer.TeamChanged:Connect(function()
+    -- First, remove lines for players on your old team
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player.Team == game.Players.LocalPlayer.Team then
+            -- Remove lines for your old teammates
+            removeLineForPlayer(player)
+        end
+    end
+    
+    -- Now, add lines for players on the opposing team
+    for _, player in pairs(game.Players:GetPlayers()) do
+        handlePlayerTeamChange(player)
+    end
+end)
